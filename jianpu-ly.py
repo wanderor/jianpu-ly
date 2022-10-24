@@ -430,7 +430,7 @@ class notehead_markup:
         self.inBeamGroup = 'restHack'
     self.lastNBeams = nBeams
     if self.barPos == self.barLength:
-        self.barPos = 0 ; self.barNo += 1
+        self.barPos = self.startBarPos = 0 ; self.barNo += 1
         self.current_accidentals = {}
     # Octave dots:
     if not midi and not western and not invisTieLast:

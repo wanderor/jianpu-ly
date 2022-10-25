@@ -86,7 +86,7 @@ def all_scores_start(staff_size = 20):
     r += r"""
 
 % un-comment the next line to remove Lilypond tagline:
-% \header { tagline="" }
+\header { tagline="" }
 
 \pointAndClickOff
 
@@ -100,26 +100,25 @@ def all_scores_start(staff_size = 20):
   % print-page-number = ##f
 
   % un-comment the next 3 lines for a binding edge:
-  % two-sided = ##t
-  % inner-margin = 20\mm
-  % outer-margin = 10\mm
+  two-sided = ##t
+  top-margin = 20\mm
+  inner-margin = 20\mm
+  outer-margin = 20\mm
 
   % un-comment the next line for a more space-saving header layout:
   % scoreTitleMarkup = \markup { \center-column { \fill-line { \magnify #1.5 { \bold { \fromproperty #'header:dedication } } \magnify #1.5 { \bold { \fromproperty #'header:title } } \fromproperty #'header:composer } \fill-line { \fromproperty #'header:instrument \fromproperty #'header:subtitle \smaller{\fromproperty #'header:subsubtitle } } } }
-"""
-    if os.path.exists("/Library/Fonts/Arial Unicode.ttf"): r += r"""
-  % As jianpu-ly was run on a Mac, we include a Mac fonts workaround.
-  % The Mac version of Lilypond 2.18 used Arial Unicode MS as a
-  % fallback even in the Serif font, but 2.20 drops this in Serif
-  % (using it only in Sans), which means any Serif text (titles,
-  % lyrics etc) that includes Chinese will likely fall back to
-  % Japanese fonts which don't support all Simplified hanzi.
-  % This brings back 2.18's behaviour on 2.20+:
+
   #(define fonts
     (set-global-fonts
-     #:roman "Times New Roman,Arial Unicode MS"
-     #:factor (/ staff-height pt 20)
-    ))
+      #:music "emmentaler"
+      #:brace "emmentaler"
+      #:roman "Roboto"
+      #:sans "sans-serif"
+      #:typewriter "WenQuanYi Zen Hei Mono"
+      #:factor (/ staff-height pt 15)
+  ))
+
+  ragged-last = ##t
 """
     if has_lyrics: r += r"""
   % Might need to enforce a minimum spacing between systems, especially if lyrics are below the last staff in a system and numbers are on the top of the next
@@ -176,7 +175,7 @@ def jianpu_voice_start(voiceName="tmp"):
     \override Beam #'beam-thickness = #0.1
     \override Beam #'length-fraction = #0.5
     \override Voice.Rest #'style = #'neomensural %% this size tends to line up better (we'll override the appearance anyway)
-    \override Accidental #'font-size = #-4
+    \override Accidental #'font-size = #-7
     \override TupletBracket #'bracket-visibility = ##t""" % stemLenFrac)
     r += "\n"+r"""\set Voice.chordChanges = ##t %% 2.19 bug workaround""" # LilyPond 2.19.82: \applyOutput docs say "called for every layout object found in the context Context at the current time step" but 2.19.x breaks this by calling it for ALL contexts in the current time step, hence breaking our WithStaff by applying our jianpu numbers to the 5-line staff too.  Obvious workaround is to make our function check that the context it's called with matches our jianpu voice, but I'm not sure how to do this other than by setting a property that's not otherwise used, which we can test for in the function.  So I'm 'commandeering' the "chordChanges" property (there since at least 2.15 and used by Lilypond only when it's in chord mode, which we don't use, and if someone adds a chord-mode staff then it won't print noteheads anyway): we will substitute jianpu numbers for noteheads only if chordChanges = #t.
     return r+"\n"
@@ -341,12 +340,12 @@ class notehead_markup:
       (ly:grob-set-property! grob 'stencil
         (grob-interpret-markup grob
           """ % self.defines_done[figures]
-        if len(figuresNew)==1 or figures.startswith("-"): ret += """(make-lower-markup 0.5 (make-bold-markup "%s")))))))
+        if len(figuresNew)==1 or figures.startswith("-"): ret += """(make-lower-markup 0.5 (make-simple-markup "%s")))))))
 """ % figuresNew
         elif not_angka and accidental: # not chord
             u338,u20e5=u"\u0338",u"\u20e5" # TODO: the \ looks better than the / in default font
             if not type("")==type(u""): u338,u20e5=u338.encode('utf-8'),u20e5.encode('utf-8')
-            ret += '(make-lower-markup 0.5 (make-bold-markup "%s%s")))))))\n' % (figures[:1],{'#':u338,'b':u20e5}[accidental])
+            ret += '(make-lower-markup 0.5 (make-simple-markup "%s%s")))))))\n' % (figures[:1],{'#':u338,'b':u20e5}[accidental])
         else: ret += """(markup (#:lower 0.5
           (#:override (cons (quote direction) 1)
           (#:override (cons (quote baseline-skip) 1.8)
@@ -439,7 +438,7 @@ class notehead_markup:
                              ",,":r"-\tweak #'Y-offset #1 "}.get(octave,"")
       oDict = {"":"",
             "'":"^.",
-            "''":r"-\tweak #'X-offset #0.3 ^\markup{\bold :}",
+            "''":r"-\tweak #'X-offset #0.3 ^\markup{\large \bold :}",
             ",":r"-\tweak #'X-offset #0.6 _.",
             ",,":r"-\tweak #'X-offset #0.3 _\markup{\bold :}"}
       if not_angka: oDict.update({
@@ -898,7 +897,6 @@ def getLY(score):
            out = re.sub(" +~ ".join(["(?P<note>[^ ]*)4"+dot]+["(?P=note)4"+dot]*(numNotes-1)),r"\g<1>"+result,out).replace(" ".join(["r4"+dot]*numNotes),"r"+result)
        out = re.sub(r"(%\{ bar [0-9]*: %\} )r([^ ]* \\bar)",r"\g<1>R\g<2>",out)
        out = out.replace(r"\new RhythmicStaff \with {",r"\new RhythmicStaff \with { \override VerticalAxisGroup.default-staff-staff-spacing = #'((basic-distance . 6) (minimum-distance . 6) (stretchability . 0)) ") # don't let it hang too far up in the air
-   if not_angka: out=out.replace("make-bold-markup","make-simple-markup")
    return out,maxBeams,lyrics,headers
 
 def process_input(inDat):
